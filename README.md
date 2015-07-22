@@ -11,6 +11,7 @@ The library itself only depends on `elm-lang/core`. The example(s) added more co
 ## Dive Into
 
 This `README` is meant to be an overall overview; it gives the general concept, then the semantics and eventually the implementation details. I'll keep it updated as I go along.
+Also, I tried to give examples within the documentation of the library itself. You might have a look (especially into `src\Oprocesso.elm`).
 
 Besides I'll keep adding examples to `examples/` -- if you have some concept of the general model-view-controller style in `elm`, you should get the idea just by starring long enough into `examples/JsonEcho.elm`.
 
@@ -100,7 +101,7 @@ setInput s =
 
 These actions are called *pure* since they do not involve any IO, any outside computation (that may fail). So, they are pure in a functional sense.
 
-On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are called **asynchronous modifiers** in *oprocesso* and are used to made up *asynchronous actions* with `async` and `with`:
+On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are called **asynchronous modifiers** in *oprocesso* and are used to make up *asynchronous actions* with `async` and `with`:
 
 ```{.elm}
 echoJson : Oprocesso.AsyncModifier Model String
@@ -171,6 +172,8 @@ The idea is to define the needed *modifiers* and *asynchronous modifiers* and th
 
   -}
 ```
+
+There are more examples within the documentation of the flow controllers in the `Oprocesso` module.
 
 ## Setup *oprocesso*
 
