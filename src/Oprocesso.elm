@@ -1,85 +1,124 @@
 module Oprocesso where
 {-|
   # Framework
-  @docs hook, actionbox
+  @docs actionbox, hook, ioport
 
-  ## Ports
-  @docs ioport, unbatch
-
-
+  # Lifts
+  @docs pure, async, asyncOn, task
 
   # Combinators
-
-  ## Simple building blocks
-  @docs pure, purelift, async, with
-
-  ## Flow Control
-  @docs thenDo, incorpl, incorpr, onsuccess
 -}
 
+--- Intern:
+import    Oprocesso.Types         exposing (..)
+--- Core:
+import    Task
+import    Signal
 
--- core:
-import  Task                    exposing (Task)
-import  Signal                  exposing (Signal, Mailbox, mailbox)
 
--- intern:
-import  Oprocesso.Types         exposing (..)
-import  Oprocesso.Background    exposing (mmstack, operationbox)
+--//////////////--
+--  BACKGROUND  --
+--//////////////--
+type RepType error model =
+    Sync  (Action error model)
+  | Async (Task.Task error (Action error model))
 
+{-| The 'mmstack' is a signal consisting of the latest model and the next action, if there is any. It *forks* the actionbox by past folding pure operations and keeping track of the latest next action.
+-}
+mmstack : model -> Signal.Signal (model, Maybe (RepType error model))
+mmstack initmodel =
+  let
+    fork_ act (m, _) =
+      case act of
+        None -> (m, Nothing)
+        Modify mo -> let (m', act') = run mo m in (m', Just <| Sync act')
+        Launch tm -> ( m, Just <| Async <| tm m `Task.andThen` \mo -> Task.succeed (Modify mo) )
+   in Signal.foldp fork_ (initmodel, Nothing) actionbox.signal
 
 
 --///////////--
 -- FRAMEWORK --
 --///////////--
 
+{-| 'actionbox' is where one sends actions to, when using the provided framework. -}
+actionbox : Signal.Mailbox (Action error model)
+actionbox =
+  Signal.mailbox None
+
+
+
 {-| 'hook' sets up the main model signal.
 
-  main = Signal.map view (hook initmodel)
+  import Oprocesso  as O
+  main = Signal.map view (O.hook initmodel)
+
 -}
-hook : model -> Signal model
+hook : model -> Signal.Signal model
 hook initmodel =
-  Signal.map fst (mmstack initmodel)
+  mmstack initmodel |> Signal.map fst
+                    |> Signal.dropRepeats
+
 
 {-| 'ioport' sets up a port which runs the asynchronous tasks and keeps feeding them back into the 'actionbox'.
 
-  import Oprocesso.Framework as OPF
+  import Oprocesso as O
 
   port asyncrunner : Signal (Task x ())
-  port asyncrunner = OPF.ioport initmodel errorHandler
+  port asyncrunner = O.ioport initmodel errorHandler
 
 
 -}
-ioport : model -> (error -> (Modifier model)) -> Signal (Task x ())
+ioport : model -> (error -> (model -> model)) -> Signal (Task.Task x ())
 ioport initmodel errorHandler =
     mmstack initmodel |> Signal.map snd
                       --^ make it a stream of the latest async tasks
-                      |> Signal.filterMap identity (Task.succeed identity)
-                      --^ if there is none (last action was pure) then skip,
-                      -- also, take the task out of the maybe monad.
-                      |> Signal.map Task.toResult
-                      |> Signal.map (\t -> t `Task.andThen` (\rt -> case rt of
-                            Ok f    -> Signal.send actionbox.address <| pure f
-                            Err err -> Signal.send actionbox.address <| pure (errorHandler err) ) )
+                      |> Signal.filterMap identity (Sync (pure identity))
+                      --^ if there is none (last action was 'None') then skip,
+                      -- also, take the 'RepType' out of the maybe monad.
+                      |> Signal.map
+                            ( \rtyp -> case rtyp of
+                                        Sync  act  -> Signal.send actionbox.address <| act
+                                        Async tact -> Task.toResult tact
+                                                     `Task.andThen` \ract -> case ract of
+                                                                        Ok act -> Signal.send actionbox.address act
+                                                                        Err err -> Signal.send actionbox.address (pure <| errorHandler err) )
 
 
-{-| 'actionbox' is where one sends actions to, when using the provided framework.
+--/////////////--
+--    LIFTS    --
+--/////////////--
+
+{-| The easiest building blocks are actions which just change the model, these are so called 'pure' ones.
+
+  pure (\m -> { m | entries <- asEntry m.typed
+                  , typed   <- ""})
 -}
-actionbox : Mailbox (Action model error)
-actionbox =
-  mailbox []
-
-unbatch : Signal (Task x ())
-unbatch =
-  let
-    unbatch_ actions =
-      case actions of
-        []       -> Signal.send operationbox.address (\m -> Pure m)
-        [o]      -> Signal.send operationbox.address o
-        (o::os)  -> Signal.send operationbox.address o `Task.andThen` (\_ -> unbatch_ os)
-  in
-    Signal.map unbatch_ actionbox.signal
+pure : (model -> model) -> Action error model
+pure f =
+  Modify (mapState f <| return None)
 
 
+{-| An asynchronous modification of the model is any task which gets invoked based on the current model and returns with a modification. One can use 'async' to lift such functions. -}
+async : (model -> Task.Task error (model -> model)) -> Action error model
+async tf =
+  Launch ( \m -> tf m `Task.andThen` \f -> Task.succeed (mapState f <| return None) )
+
+{-| Often the invocation of tasks depends on a certain value out of the model which can be reached by a getter. 'asyncOn' is meant to be used in such a situation:
+
+  requestJson `asyncOn` .typed
+
+
+-}
+asyncOn : (a -> Task.Task error (model -> model)) -> (model -> a) -> Action error model
+asyncOn tf getter =
+  async (\m -> tf (getter m))
+
+
+{-| An asynchronous modification which does not depend on the current model can be lifted with 'task'.
+-}
+task : (Task.Task error (model -> model)) -> Action error model
+task t =
+  async <| \_ -> t
 
 --/////////////--
 -- COMBINATORS --
@@ -87,133 +126,3 @@ unbatch =
 
 -------------------------
 -- simple building blocks
-
-
-{-| The easiest building blocks are actions which just change the model, these are so called 'pure' ones.
-
-  pure (\m -> { m | entries <- asEntry m.typed
-                  , typed   <- ""})
--}
-pure : Modifier model -> Action model error
-pure f =
-  [\m -> Pure (f m)]
-
-
-purelift : (a -> Modifier model) -> (a -> Action model error)
-purelift f =
-  \x -> (pure <| f x)
-
-{-| An action might be based on a simple task which does not depend on the current model; this is when 'async' can be used.
-
-  async refreshWeatherStatus
-
--}
-async : Task error (Modifier model) -> Action model error
-async t =
-  [\_ -> Async t]
-
-{-| Often one wants to base an action on a task, where this task needs some information from the current model, for example a http request which needs a session id. 'with' is the way to go:
-
-  httpRequest `with` .sessionId
-
--}
-with : (a -> AsyncModifier model error) -> (model -> a) -> Action model error
-with ft acc =
-  [\m -> Async (ft <| acc m)]
-
-
-
-
--------------------
--- flow control
-
-{-| Action can be combined with 'thenDo' which sets them up in a temporal order. One can use '(==>)' for an infix operator.
-
-        pure (print "start request")
-    ==> pure (putOnHold)
-    ==> httpRequest `with` .sessionId
-
-Though, it does not wait until an asynchronous operation returns. See 'incorpr' and 'onsuccess' for such functions.
--}
-thenDo : Action model error -> Action model error -> Action model error
-thenDo = (++)
-
-infix 5 ==>
-(==>) = thenDo
-
-{-| If one wants to modify the model *before* a certain action happens, one can use 'incorpl' to glue a modification and an action together:
-
-  print "Starting Request." `incorpl` (httpRequest `with` .sessionId)
-
-For a more eDSL like feeling, one can use '(>>-)' also:
-
-      print "Starting Request."
-  >>- putOnHold
-  >>- (httpRequest `with` .sessionId)
-
-This is in fact nothing else but lifting the modifier and `thenDo` the given action.
--}
-incorpl : Modifier model -> Action model error -> Action model error
-incorpl puref act =
-  pure puref `thenDo` act
-
-
-infixr 6 >>-
-(>>-) = incorpl
-
-{-| To modify an action on the right (i.e. changing the result after it got executed) one can use 'incorpr'. It changes to last operation of the action in such a way, that the given modification of the model takes place *right after* the action has successfully happened or the error handler has modified the model. For asynchronous actions this means that the modification will happen right after the asynchronous action has been returned and applied (if it succeded) or *before* the error handler modified the model.
-
-  (httpRequest `with` .sessionId) `incorpl` setupForNextInput
-
-For a more eDSL like feeling (and for mixing with other operators) there is the infix operator '(-<<)':
-
-      print "start request"
-  >>- putOnHold
-  >>-
-      httpRequest `with` .sessionId
-  -<<
-      removeHold
-
-The difference between 'thenDo' and 'incorpr' is the moment when the second actions happens. For 'thenDo' it does after starting the asynchronous operation, where the modification given to 'incorpr' starts when (any) result from the asynchronous operation did come back.
--}
-incorpr : Action model error -> Modifier model -> Action model error
-incorpr act puref =
-  let l = List.length act
-  in case List.drop (l - 1) act of
-  []   -> []
-  [op] ->    List.take (l - 1) act
-             ++ [\m -> case op m of
-                    Pure m' -> Pure (puref m')
-                    Async t -> Async <| Task.toResult t `Task.andThen`
-                                \r -> case r of
-                                    Ok f     -> Task.succeed (f >> puref)
-                                    -- the following is cheating. I know.
-                                    Err err  ->      Signal.send operationbox.address (\m -> Pure (puref m))
-                                      `Task.andThen` (\_ -> Task.fail err) ]
-
-
-infixl 7 -<<
-(-<<) = incorpr
-
-{-| 'onsuccess' follows the idea of 'incorpr', but the modifier will only happen, if the asynchronous one did succeed. One can use '(-<!)' as an infix operator for this operation. It should appear before any '(-<<)':
-
-        print "start request"
-    >>- putOnHold
-    >>-
-        httpRequest `with` .sessionId
-        -<! print "we have a success!"
-    -<<
-        removeHold -}
-onsuccess : Action model error -> Modifier model -> Action model error
-onsuccess act puref =
-  let l = List.length act
-  in case List.drop (l - 1) act of
-  []   -> []
-  [op] ->    List.take (l - 1) act
-             ++ [\m -> case op m of
-                    Pure m' -> Pure (puref m')
-                    Async t -> Async (Task.map (\f -> f >> puref) t)]
-
-
-infixl 8 -<!
-(-<!) = onsuccess

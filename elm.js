@@ -4155,7 +4155,7 @@ Elm.JsonEcho.make = function (_elm) {
             case "[]":
             return _L.fromArray([]);}
          _U.badCase($moduleName,
-         "between lines 123 and 125");
+         "between lines 126 and 128");
       }();
    };
    _op[">>="] = $Task.andThen;
@@ -4165,7 +4165,9 @@ Elm.JsonEcho.make = function (_elm) {
                          ,inp]],
       m);
    });
-   var typing = $Oprocesso.purelift(setInput);
+   var typing = function (s) {
+      return $Oprocesso.pure(setInput(s));
+   };
    var addTyped = function (m) {
       return _U.replace([["entries"
                          ,A2($Basics._op["++"],
@@ -4217,20 +4219,11 @@ Elm.JsonEcho.make = function (_elm) {
                     "/",
                     _v5._1)))));}
                _U.badCase($moduleName,
-               "on line 99, column 23 to 78");
+               "on line 102, column 23 to 78");
             }();
          });
       }();
    };
-   var makeRequest = A2($Oprocesso._op[">>-"],
-   addTyped,
-   A2($Oprocesso.thenDo,
-   A2($Oprocesso.$with,
-   asyncRequestJson,
-   function (_) {
-      return _.typed;
-   }),
-   $Oprocesso.pure(setInput(""))));
    var inputfield = function (s) {
       return A2($Html.input,
       _L.fromArray([$Html$Attributes.id("inputfield")
@@ -4247,7 +4240,11 @@ Elm.JsonEcho.make = function (_elm) {
                    function (_) {
                       return _.address;
                    }($Oprocesso.actionbox),
-                   makeRequest)]),
+                   A2($Oprocesso.asyncOn,
+                   asyncRequestJson,
+                   function (_) {
+                      return _.typed;
+                   }))]),
       _L.fromArray([]));
    };
    var view = function (m) {
@@ -4277,8 +4274,6 @@ Elm.JsonEcho.make = function (_elm) {
              ,entries: a
              ,typed: b};
    });
-   var unbatch = Elm.Native.Task.make(_elm).performSignal("unbatch",
-   $Oprocesso.unbatch);
    var asyncrunner = Elm.Native.Task.make(_elm).performSignal("asyncrunner",
    A2($Oprocesso.ioport,
    initmodel,
@@ -4295,7 +4290,6 @@ Elm.JsonEcho.make = function (_elm) {
                           ,addTyped: addTyped
                           ,setInput: setInput
                           ,typing: typing
-                          ,makeRequest: makeRequest
                           ,asyncRequestJson: asyncRequestJson
                           ,view: view
                           ,inputfield: inputfield
@@ -12656,261 +12650,80 @@ Elm.Oprocesso.make = function (_elm) {
    _L = _N.List.make(_elm),
    $moduleName = "Oprocesso",
    $Basics = Elm.Basics.make(_elm),
-   $List = Elm.List.make(_elm),
-   $Oprocesso$Background = Elm.Oprocesso.Background.make(_elm),
+   $Maybe = Elm.Maybe.make(_elm),
    $Oprocesso$Types = Elm.Oprocesso.Types.make(_elm),
    $Result = Elm.Result.make(_elm),
    $Signal = Elm.Signal.make(_elm),
    $Task = Elm.Task.make(_elm);
-   var onsuccess = F2(function (act,
-   puref) {
-      return function () {
-         var l = $List.length(act);
+   var async = function (tf) {
+      return $Oprocesso$Types.Launch(function (m) {
+         return A2($Task.andThen,
+         tf(m),
+         function (f) {
+            return $Task.succeed($Oprocesso$Types.mapState(f)($Oprocesso$Types.$return($Oprocesso$Types.None)));
+         });
+      });
+   };
+   var asyncOn = F2(function (tf,
+   getter) {
+      return async(function (m) {
+         return tf(getter(m));
+      });
+   });
+   var task = function (t) {
+      return async(function (_v0) {
          return function () {
-            var _v0 = A2($List.drop,
-            l - 1,
-            act);
-            switch (_v0.ctor)
-            {case "::": switch (_v0._1.ctor)
-                 {case "[]":
-                    return A2($Basics._op["++"],
-                      A2($List.take,l - 1,act),
-                      _L.fromArray([function (m) {
-                         return function () {
-                            var _v3 = _v0._0(m);
-                            switch (_v3.ctor)
-                            {case "Async":
-                               return $Oprocesso$Types.Async(A2($Task.map,
-                                 function (f) {
-                                    return function ($) {
-                                       return puref(f($));
-                                    };
-                                 },
-                                 _v3._0));
-                               case "Pure":
-                               return $Oprocesso$Types.Pure(puref(_v3._0));}
-                            _U.badCase($moduleName,
-                            "between lines 213 and 215");
-                         }();
-                      }]));}
-                 break;
-               case "[]":
-               return _L.fromArray([]);}
-            _U.badCase($moduleName,
-            "between lines 210 and 215");
+            return t;
          }();
-      }();
-   });
-   _op["-<!"] = onsuccess;
-   var incorpr = F2(function (act,
-   puref) {
-      return function () {
-         var l = $List.length(act);
-         return function () {
-            var _v6 = A2($List.drop,
-            l - 1,
-            act);
-            switch (_v6.ctor)
-            {case "::": switch (_v6._1.ctor)
-                 {case "[]":
-                    return A2($Basics._op["++"],
-                      A2($List.take,l - 1,act),
-                      _L.fromArray([function (m) {
-                         return function () {
-                            var _v9 = _v6._0(m);
-                            switch (_v9.ctor)
-                            {case "Async":
-                               return $Oprocesso$Types.Async(A2($Task.andThen,
-                                 $Task.toResult(_v9._0),
-                                 function (r) {
-                                    return function () {
-                                       switch (r.ctor)
-                                       {case "Err":
-                                          return A2($Task.andThen,
-                                            A2($Signal.send,
-                                            $Oprocesso$Background.operationbox.address,
-                                            function (m) {
-                                               return $Oprocesso$Types.Pure(puref(m));
-                                            }),
-                                            function (_v15) {
-                                               return function () {
-                                                  return $Task.fail(r._0);
-                                               }();
-                                            });
-                                          case "Ok":
-                                          return $Task.succeed(function ($) {
-                                               return puref(r._0($));
-                                            });}
-                                       _U.badCase($moduleName,
-                                       "between lines 188 and 192");
-                                    }();
-                                 }));
-                               case "Pure":
-                               return $Oprocesso$Types.Pure(puref(_v9._0));}
-                            _U.badCase($moduleName,
-                            "between lines 185 and 192");
-                         }();
-                      }]));}
-                 break;
-               case "[]":
-               return _L.fromArray([]);}
-            _U.badCase($moduleName,
-            "between lines 182 and 192");
-         }();
-      }();
-   });
-   _op["-<<"] = incorpr;
-   var thenDo = F2(function (x,y) {
-      return A2($Basics._op["++"],
-      x,
-      y);
-   });
-   _op["==>"] = thenDo;
-   var $with = F2(function (ft,
-   acc) {
-      return _L.fromArray([function (m) {
-         return $Oprocesso$Types.Async(ft(acc(m)));
-      }]);
-   });
-   var async = function (t) {
-      return _L.fromArray([function (_v17) {
-         return function () {
-            return $Oprocesso$Types.Async(t);
-         }();
-      }]);
+      });
    };
    var pure = function (f) {
-      return _L.fromArray([function (m) {
-         return $Oprocesso$Types.Pure(f(m));
-      }]);
+      return $Oprocesso$Types.Modify($Oprocesso$Types.mapState(f)($Oprocesso$Types.$return($Oprocesso$Types.None)));
    };
-   var purelift = F2(function (f,
-   x) {
-      return pure(f(x));
-   });
-   var incorpl = F2(function (puref,
-   act) {
-      return A2(thenDo,
-      pure(puref),
-      act);
-   });
-   _op[">>-"] = incorpl;
-   var actionbox = $Signal.mailbox(_L.fromArray([]));
-   var unbatch = function () {
-      var unbatch_ = function (actions) {
-         return function () {
-            switch (actions.ctor)
-            {case "::":
-               switch (actions._1.ctor)
-                 {case "[]":
-                    return A2($Signal.send,
-                      $Oprocesso$Background.operationbox.address,
-                      actions._0);}
-                 return A2($Task.andThen,
-                 A2($Signal.send,
-                 $Oprocesso$Background.operationbox.address,
-                 actions._0),
-                 function (_v22) {
-                    return function () {
-                       return unbatch_(actions._1);
-                    }();
-                 });
-               case "[]":
-               return A2($Signal.send,
-                 $Oprocesso$Background.operationbox.address,
-                 function (m) {
-                    return $Oprocesso$Types.Pure(m);
-                 });}
-            _U.badCase($moduleName,
-            "between lines 75 and 79");
-         }();
-      };
-      return A2($Signal.map,
-      unbatch_,
-      actionbox.signal);
-   }();
-   var ioport = F2(function (initmodel,
-   errorHandler) {
-      return $Signal.map(function (t) {
-         return A2($Task.andThen,
-         t,
-         function (rt) {
-            return function () {
-               switch (rt.ctor)
-               {case "Err":
-                  return $Signal.send(actionbox.address)(pure(errorHandler(rt._0)));
-                  case "Ok":
-                  return $Signal.send(actionbox.address)(pure(rt._0));}
-               _U.badCase($moduleName,
-               "between lines 60 and 62");
-            }();
-         });
-      })($Signal.map($Task.toResult)(A2($Signal.filterMap,
-      $Basics.identity,
-      $Task.succeed($Basics.identity))($Signal.map($Basics.snd)($Oprocesso$Background.mmstack(initmodel)))));
-   });
-   var hook = function (initmodel) {
-      return A2($Signal.map,
-      $Basics.fst,
-      $Oprocesso$Background.mmstack(initmodel));
+   var actionbox = $Signal.mailbox($Oprocesso$Types.None);
+   var Async = function (a) {
+      return {ctor: "Async",_0: a};
    };
-   _elm.Oprocesso.values = {_op: _op
-                           ,hook: hook
-                           ,ioport: ioport
-                           ,actionbox: actionbox
-                           ,unbatch: unbatch
-                           ,pure: pure
-                           ,purelift: purelift
-                           ,async: async
-                           ,$with: $with
-                           ,thenDo: thenDo
-                           ,incorpl: incorpl
-                           ,incorpr: incorpr
-                           ,onsuccess: onsuccess};
-   return _elm.Oprocesso.values;
-};
-Elm.Oprocesso = Elm.Oprocesso || {};
-Elm.Oprocesso.Background = Elm.Oprocesso.Background || {};
-Elm.Oprocesso.Background.make = function (_elm) {
-   "use strict";
-   _elm.Oprocesso = _elm.Oprocesso || {};
-   _elm.Oprocesso.Background = _elm.Oprocesso.Background || {};
-   if (_elm.Oprocesso.Background.values)
-   return _elm.Oprocesso.Background.values;
-   var _op = {},
-   _N = Elm.Native,
-   _U = _N.Utils.make(_elm),
-   _L = _N.List.make(_elm),
-   $moduleName = "Oprocesso.Background",
-   $Maybe = Elm.Maybe.make(_elm),
-   $Oprocesso$Types = Elm.Oprocesso.Types.make(_elm),
-   $Signal = Elm.Signal.make(_elm);
-   var operationbox = $Signal.mailbox(function (m) {
-      return $Oprocesso$Types.Pure(m);
-   });
+   var Sync = function (a) {
+      return {ctor: "Sync",_0: a};
+   };
    var mmstack = function (initmodel) {
       return function () {
-         var fork_ = F2(function (op,
-         _v0) {
+         var fork_ = F2(function (act,
+         _v2) {
             return function () {
-               switch (_v0.ctor)
+               switch (_v2.ctor)
                {case "_Tuple2":
                   return function () {
-                       var _v4 = op(_v0._0);
-                       switch (_v4.ctor)
-                       {case "Async":
+                       switch (act.ctor)
+                       {case "Launch":
                           return {ctor: "_Tuple2"
-                                 ,_0: _v0._0
-                                 ,_1: $Maybe.Just(_v4._0)};
-                          case "Pure":
+                                 ,_0: _v2._0
+                                 ,_1: $Maybe.Just(Async(A2($Task.andThen,
+                                 act._0(_v2._0),
+                                 function (mo) {
+                                    return $Task.succeed($Oprocesso$Types.Modify(mo));
+                                 })))};
+                          case "Modify":
+                          return function () {
+                               var $ = A2($Oprocesso$Types.run,
+                               act._0,
+                               _v2._0),
+                               m$ = $._0,
+                               act$ = $._1;
+                               return {ctor: "_Tuple2"
+                                      ,_0: m$
+                                      ,_1: $Maybe.Just(Sync(act$))};
+                            }();
+                          case "None":
                           return {ctor: "_Tuple2"
-                                 ,_0: _v4._0
+                                 ,_0: _v2._0
                                  ,_1: $Maybe.Nothing};}
                        _U.badCase($moduleName,
-                       "between lines 33 and 36");
+                       "between lines 32 and 36");
                     }();}
                _U.badCase($moduleName,
-               "between lines 33 and 36");
+               "between lines 32 and 36");
             }();
          });
          return A3($Signal.foldp,
@@ -12918,13 +12731,56 @@ Elm.Oprocesso.Background.make = function (_elm) {
          {ctor: "_Tuple2"
          ,_0: initmodel
          ,_1: $Maybe.Nothing},
-         operationbox.signal);
+         actionbox.signal);
       }();
    };
-   _elm.Oprocesso.Background.values = {_op: _op
-                                      ,operationbox: operationbox
-                                      ,mmstack: mmstack};
-   return _elm.Oprocesso.Background.values;
+   var hook = function (initmodel) {
+      return $Signal.dropRepeats($Signal.map($Basics.fst)(mmstack(initmodel)));
+   };
+   var ioport = F2(function (initmodel,
+   errorHandler) {
+      return $Signal.map(function (rtyp) {
+         return function () {
+            switch (rtyp.ctor)
+            {case "Async":
+               return A2($Task.andThen,
+                 $Task.toResult(rtyp._0),
+                 function (ract) {
+                    return function () {
+                       switch (ract.ctor)
+                       {case "Err":
+                          return A2($Signal.send,
+                            actionbox.address,
+                            pure(errorHandler(ract._0)));
+                          case "Ok":
+                          return A2($Signal.send,
+                            actionbox.address,
+                            ract._0);}
+                       _U.badCase($moduleName,
+                       "between lines 82 and 84");
+                    }();
+                 });
+               case "Sync":
+               return $Signal.send(actionbox.address)(rtyp._0);}
+            _U.badCase($moduleName,
+            "between lines 79 and 84");
+         }();
+      })(A2($Signal.filterMap,
+      $Basics.identity,
+      Sync(pure($Basics.identity)))($Signal.map($Basics.snd)(mmstack(initmodel))));
+   });
+   _elm.Oprocesso.values = {_op: _op
+                           ,Sync: Sync
+                           ,Async: Async
+                           ,mmstack: mmstack
+                           ,actionbox: actionbox
+                           ,hook: hook
+                           ,ioport: ioport
+                           ,pure: pure
+                           ,async: async
+                           ,asyncOn: asyncOn
+                           ,task: task};
+   return _elm.Oprocesso.values;
 };
 Elm.Oprocesso = Elm.Oprocesso || {};
 Elm.Oprocesso.Types = Elm.Oprocesso.Types || {};
@@ -12940,15 +12796,66 @@ Elm.Oprocesso.Types.make = function (_elm) {
    _L = _N.List.make(_elm),
    $moduleName = "Oprocesso.Types",
    $Task = Elm.Task.make(_elm);
-   var Async = function (a) {
-      return {ctor: "Async",_0: a};
+   var Launch = function (a) {
+      return {ctor: "Launch"
+             ,_0: a};
    };
-   var Pure = function (a) {
-      return {ctor: "Pure",_0: a};
+   var Modify = function (a) {
+      return {ctor: "Modify"
+             ,_0: a};
+   };
+   var None = {ctor: "None"};
+   var run = function (_v0) {
+      return function () {
+         switch (_v0.ctor)
+         {case "State": return _v0._0;}
+         _U.badCase($moduleName,
+         "on line 25, column 17 to 18");
+      }();
+   };
+   var State = function (a) {
+      return {ctor: "State",_0: a};
+   };
+   var mapState = F2(function (f,
+   st) {
+      return State(function (m) {
+         return function () {
+            var $ = A2(run,st,m),
+            m$ = $._0,
+            x = $._1;
+            return {ctor: "_Tuple2"
+                   ,_0: f(m$)
+                   ,_1: x};
+         }();
+      });
+   });
+   var andThen = F2(function (p,
+   q) {
+      return State(function (model) {
+         return function () {
+            var $ = A2(run,p,model),
+            m = $._0,
+            x = $._1;
+            return A2(run,q(x),m);
+         }();
+      });
+   });
+   var $return = function (x) {
+      return State(function (m) {
+         return {ctor: "_Tuple2"
+                ,_0: m
+                ,_1: x};
+      });
    };
    _elm.Oprocesso.Types.values = {_op: _op
-                                 ,Pure: Pure
-                                 ,Async: Async};
+                                 ,State: State
+                                 ,run: run
+                                 ,mapState: mapState
+                                 ,andThen: andThen
+                                 ,$return: $return
+                                 ,None: None
+                                 ,Modify: Modify
+                                 ,Launch: Launch};
    return _elm.Oprocesso.Types.values;
 };
 Elm.Result = Elm.Result || {};

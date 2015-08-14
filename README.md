@@ -141,6 +141,8 @@ So the function `pure` has its dual in `async`, where `with` is connected to `pu
 
 ## Flow Control
 
+### Flow Control Operators
+
 Okay, so I've explained how to make up actions from simple building blocks; these so gained actions are somewhat overt. Also, *oprocesso* gives one the possibility to make up more complex *actions* by combining *modifiers*, *asynchronous modifiers* and *actions* themselves.
 
 There are four flow control operators:
@@ -174,6 +176,32 @@ The idea is to define the needed *modifiers* and *asynchronous modifiers* and th
 ```
 
 There are more examples within the documentation of the flow controllers in the `Oprocesso` module.
+
+### Flow Control from a Distance (eDSL time)
+
+If one looks from a distance, one might see that the flow controllers are made up in such a way, that the flow "goes around" a single *asynchronous action*:
+
+```{.elm}
+      print "start request"
+  >>- putOnHold
+  >>-
+      httpRequest `with` .sessionId
+      -<! print "We have a success."
+  -<<
+      removeHold
+
+  ==> pure (print "request sent")
+```
+
+but where `==>` (i.e. `thenDo`) seperates (in some sense distinct) actions.
+
+A question might appear right now: "How the heck can one incorporate *asynchronous actions* then?" Tl;dr: you can't. But you do not need to: `Task.andThen`,
+
+Why would you like to incorporate two *asynchronous actions* together? My guess: you have two `Task`s you would like to combine. And for such a situation, there is already `Task.andThen`.
+
+Well, let's take another look how *asynchronous actions* are made: they're built out of *asynchronous modifiers* which are, in fact, just inhabitants of `Task error (model -> model)`. Such `Task error (model -> model)` was probably made out of some `Task specificError a`. Aha!
+
+For example, the following situation may appear: when the app starts, 
 
 ## Setup *oprocesso*
 

@@ -2,13 +2,8 @@ module JsonEcho where
 
 
 -- Oprocesso:
-import  Oprocesso               exposing ( (>>-)
-                                         , thenDo
-                                         , pure
-                                         , purelift
-                                         , with
-                                         )
-import  Oprocesso.Types         exposing (..)
+import  Oprocesso
+import  Oprocesso.Types         as OT
 
 -- core:
 import  Task                    exposing (Task)
@@ -28,8 +23,6 @@ main = Signal.map view (Oprocesso.hook initmodel)
 port asyncrunner : Signal (Task x ())
 port asyncrunner = Oprocesso.ioport initmodel errorHandler
 
-port unbatch : Signal (Task x ())
-port unbatch = Oprocesso.unbatch
 
 --///////////--
 --   MODEL   --
@@ -43,22 +36,22 @@ type alias Model =
 initmodel : Model
 initmodel = { entries = ["Type: 'v1/the/v2/heck' to get 'the/heck' echoed."], typed = ""}
 
-errorHandler : String -> Modifier Model
+errorHandler : String -> Model -> Model
 errorHandler s = addEntry <| "Error: " ++ s
 
 ------------
 -- modifiers:
-addEntry : String -> Modifier Model
+addEntry : String -> Model -> Model
 addEntry ent =
   \m -> { m | entries <- m.entries ++ [ent] }
 
 
-addTyped : Modifier Model
+addTyped : Model -> Model
 addTyped =
   \m -> { m | entries <- m.entries ++ ["\\> " ++ m.typed] }
 
 
-setInput : String -> Modifier Model
+setInput : String -> Model -> Model
 setInput inp =
   \m -> { m | typed <- inp }
 
@@ -68,20 +61,30 @@ setInput inp =
 
 -------------
 -- pure ones:
-typing : String -> Action Model String
-typing = purelift setInput
+typing : String -> OT.Action String Model
+typing s = Oprocesso.pure (setInput s)
 
 --------------------------
 -- dependent asynchronous:
 (>>=) = Task.andThen
 
 {-| 'makeRequest' adds the current input into the history, starts an asynchronous request based on the current input (and which pushes its result into the history when completed) and empties the input box right after. -}
-makeRequest : Action Model String
+{-makeRequest : Action Model String
 makeRequest =
-           addTyped
+      {-     addTyped
               >>- asyncRequestJson `with` .typed
-  `thenDo` pure (setInput "")
+                  -<! addEntry "Succeed: echo."
+              =<< Oprocesso.async (asyncRequestJson "v1/bounce/v2/back")
+                  -<! addEntry "Succeed: bounce."
+              -<< addEntry "Echo and Bounce complete."
+-}
 
+            addTyped
+            >>- asyncRequestJson `with` .typed
+            =<< Oprocesso.async (asyncRequestJson "v1/bounce/v2/back")
+            =<< Oprocesso.async (asyncRequestJson "v1/back/v2/bounce")
+  `thenDo` pure (setInput "")
+-}
 
 --/////////--
 --  TASKS  --
@@ -89,7 +92,7 @@ makeRequest =
 
 -------------
 -- dependent:
-asyncRequestJson : String -> AsyncModifier Model String
+asyncRequestJson : String -> Task String (Model -> Model)
 asyncRequestJson typd =
   let vvDecoder_ =
         object2 (,)
@@ -114,7 +117,7 @@ inputfield s =
   input [ id "inputfield"
         , value s
         , on "input" (Json.Decode.map typing targetValue) (Signal.message <| .address Oprocesso.actionbox)
-        , onEnter (.address Oprocesso.actionbox) makeRequest
+        , onEnter (.address Oprocesso.actionbox) (asyncRequestJson `Oprocesso.asyncOn` .typed)
         ]
         []
 

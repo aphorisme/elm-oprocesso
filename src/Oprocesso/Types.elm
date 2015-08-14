@@ -1,33 +1,48 @@
 module Oprocesso.Types where
 {-|
-  # Base Types
-  @docs Action, Operation, OperationMode, Modifier, AsyncModifier
+  ## State Monad
+  @docs State, run, mapState, andThen, return
 
+  ## Core Types
+  @docs Modifier, Action
 -}
 
 
 -- core:
-import  Task        exposing (Task)
+import  Task
 
 
 --////////////////--
 --   BASE TYPES   --
 --////////////////--
 
-type OperationMode model error =
-    Pure  model
-  | Async (AsyncModifier model error)
+-----------------
+-- State Monad
+type State s a =
+  State (s -> (s, a))
 
-type alias Operation model error =
-  model -> OperationMode model error
+run : State s a -> s -> (s, a)
+run (State f) = f
+
+mapState : (s -> s) -> State s a -> State s a
+mapState f st = State (\m -> let (m', x) = run st m
+                              in (f m', x) )
+
+andThen : State s a -> (a -> State s b) -> State s b
+andThen p q = State (\model -> let (m, x) = run p model
+                                in run (q x) m )
+
+return : a -> State s a
+return x = State (\m -> (m, x))
 
 
-type alias Action model error =
-  List (Operation model error)
+------------------
+-- Core Types
+type alias Modifier error model =
+  State model (Action error model)
 
 
-type alias Modifier model =
-  model -> model
-
-type alias AsyncModifier model error =
-  Task error (Modifier model)
+type Action error model =
+    None
+  | Modify (Modifier error model)
+  | Launch (model -> Task.Task error (Modifier error model))
