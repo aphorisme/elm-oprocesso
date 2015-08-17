@@ -7,6 +7,7 @@ module Oprocesso where
   @docs pure, async, asyncOn, task
 
   # Combinators
+  @docs thenDo, next, onfail
 -}
 
 --- Intern:
@@ -64,12 +65,12 @@ hook initmodel =
                     |> Signal.dropRepeats
 
 
-{-| 'ioport' sets up a port which runs the asynchronous tasks and keeps feeding them back into the 'actionbox'.
+{-| 'ioport' sets up a port which runs the asynchronous tasks and calls the actions by feeding them back into the 'actionbox'.
 
   import Oprocesso as O
 
   port asyncrunner : Signal (Task x ())
-  port asyncrunner = O.ioport initmodel errorHandler
+  port asyncrunner = O.ioport initmodel
 
 
 -}
@@ -82,8 +83,8 @@ ioport initmodel =
                       -- also, take the 'RepType' out of the maybe monad.
                       |> Signal.map
                             ( \rtyp -> case rtyp of
-                                        Sync  act  -> Signal.send actionbox.address <| act
-                                        Async tact -> tact `Task.andThen` \act -> Signal.send actionbox.address act )
+                                        Sync  act  -> invoke act
+                                        Async tact -> tact `Task.andThen` \act -> invoke act )
 
 
 

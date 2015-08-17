@@ -2,8 +2,6 @@
 
 > Josef K. foi certamente vítima de alguma calúnia, pois, numa bela manhã, sem ter feito nada de mal, foi detido.
 
-**README IS NOT UP TO DATE**
-
 ## Disclaimer
 
 This framework is at the moment at a state of a bare *proof of concept*. The chances are high that it will suffer significant changes. It might even be the case that the key idea is flawed, I don't know yet.
@@ -195,7 +193,9 @@ import  Oprocesso.Types         as OT
 import  Oprocesso.EDSL          exposing (..)
 ```
 
-Next, there is one port you need to run:
+where I propose to expose the lifts from `Oprocesso`, i.e. `import Oprocesso exposing (async, asyncOn, task, pure, pureParam)`.
+
+Next, there is one port you need to run, which runs the tasks and calls the actions by feeding them back into the `actionbox`,
 
 ```{.elm}
 port asyncrunner : Signal (Task x ())
