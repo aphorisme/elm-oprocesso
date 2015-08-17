@@ -4156,7 +4156,7 @@ Elm.JsonEcho.make = function (_elm) {
             case "[]":
             return _L.fromArray([]);}
          _U.badCase($moduleName,
-         "between lines 124 and 126");
+         "between lines 125 and 127");
       }();
    };
    _op[">>="] = $Task.andThen;
@@ -4220,24 +4220,23 @@ Elm.JsonEcho.make = function (_elm) {
                     "/",
                     _v5._1)))));}
                _U.badCase($moduleName,
-               "on line 98, column 23 to 78");
+               "on line 99, column 23 to 78");
             }();
          });
       }();
    };
    var makeRequest = A2($Oprocesso$EDSL._op["<=>"],
    A2($Oprocesso$EDSL._op["<=>"],
+   A2($Oprocesso$EDSL._op["<=>"],
    A2($Oprocesso$EDSL._op["-<<"],
    A2($Oprocesso$EDSL._op["!<<"],
    A2($Oprocesso$EDSL._op[">>-"],
    A2($Oprocesso$EDSL._op[">>-"],
-   A2($Oprocesso$EDSL._op[">>-"],
-   $Oprocesso.pure(addTyped),
    A2($Oprocesso.asyncOn,
    requestJson,
    function (_) {
       return _.typed;
-   })),
+   }),
    $Oprocesso.task(requestJson("v1/bounce/v2/back"))),
    $Oprocesso.pure(addEntry("Succeed: echo!"))),
    function (err) {
@@ -4246,8 +4245,9 @@ Elm.JsonEcho.make = function (_elm) {
       err)));
    }),
    $Oprocesso.pure(addEntry("Back."))),
-   $Oprocesso.pure(addEntry("back anyway."))),
-   $Oprocesso.pure(setInput("")));
+   $Oprocesso.pure(setInput(""))),
+   $Oprocesso.pure(addTyped)),
+   $Oprocesso.pure(addEntry("back anyway.")));
    var inputfield = function (s) {
       return A2($Html.input,
       _L.fromArray([$Html$Attributes.id("inputfield")
@@ -12692,7 +12692,7 @@ Elm.Oprocesso.make = function (_elm) {
                             $Oprocesso$Types.Modify(r._0),
                             eact2)));}
                        _U.badCase($moduleName,
-                       "between lines 158 and 161");
+                       "between lines 175 and 178");
                     }();
                  });
               });
@@ -12707,7 +12707,7 @@ Elm.Oprocesso.make = function (_elm) {
             case "None":
             return $Oprocesso$Types.None;}
          _U.badCase($moduleName,
-         "between lines 156 and 162");
+         "between lines 173 and 179");
       }();
    });
    var thenDo = F2(function (act1,
@@ -12738,7 +12738,7 @@ Elm.Oprocesso.make = function (_elm) {
               }));
             case "None": return act2;}
          _U.badCase($moduleName,
-         "between lines 138 and 141");
+         "between lines 149 and 155");
       }();
    });
    var async = function (tf) {
@@ -12791,16 +12791,20 @@ Elm.Oprocesso.make = function (_elm) {
                  });
               });
             case "Modify":
-            return $Oprocesso$Types.Modify(A2($Oprocesso$Types.andThen,
-              act1._0,
-              function (act) {
-                 return $Oprocesso$Types.$return(A2(next,
-                 act,
-                 act2));
-              }));
+            return $Oprocesso$Types.Launch(function (_v16) {
+                 return function () {
+                    return A2($Task.andThen,
+                    invoke(act2),
+                    function (_v18) {
+                       return function () {
+                          return $Task.succeed(act1._0);
+                       }();
+                    });
+                 }();
+              });
             case "None": return act2;}
          _U.badCase($moduleName,
-         "between lines 146 and 149");
+         "between lines 158 and 170");
       }();
    });
    var Async = function (a) {
@@ -12812,17 +12816,17 @@ Elm.Oprocesso.make = function (_elm) {
    var mmstack = function (initmodel) {
       return function () {
          var fork_ = F2(function (act,
-         _v16) {
+         _v20) {
             return function () {
-               switch (_v16.ctor)
+               switch (_v20.ctor)
                {case "_Tuple2":
                   return function () {
                        switch (act.ctor)
                        {case "Launch":
                           return {ctor: "_Tuple2"
-                                 ,_0: _v16._0
+                                 ,_0: _v20._0
                                  ,_1: $Maybe.Just(Async(A2($Task.andThen,
-                                 act._0(_v16._0),
+                                 act._0(_v20._0),
                                  function (mo) {
                                     return $Task.succeed($Oprocesso$Types.Modify(mo));
                                  })))};
@@ -12830,7 +12834,7 @@ Elm.Oprocesso.make = function (_elm) {
                           return function () {
                                var $ = A2($Oprocesso$Types.run,
                                act._0,
-                               _v16._0),
+                               _v20._0),
                                m$ = $._0,
                                act$ = $._1;
                                return {ctor: "_Tuple2"
@@ -12839,7 +12843,7 @@ Elm.Oprocesso.make = function (_elm) {
                             }();
                           case "None":
                           return {ctor: "_Tuple2"
-                                 ,_0: _v16._0
+                                 ,_0: _v20._0
                                  ,_1: $Maybe.Nothing};}
                        _U.badCase($moduleName,
                        "between lines 32 and 36");

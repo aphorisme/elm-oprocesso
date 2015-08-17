@@ -101,8 +101,16 @@ pure f =
   Modify (mapState f <| return None)
 
 
+{-| Usually, a model gets modified based on a parameter. These can be lifted with `pureParam`:
+
+  addString : String -> Model -> Model
+  addString s = \m -> { m | entries <- asEntry s }
+
+  pureParam addString "an Entry"
+-}
 pureParam : (a -> (model -> model)) -> a -> Action error model
-pureParam f x = pure (f x)
+pureParam f x =
+  pure (f x)
 
 {-| An asynchronous modification of the model is any task which gets invoked based on the current model and returns with a modification. One can use 'async' to lift such functions. -}
 async : (model -> Task.Task error (model -> model)) -> Action error model
@@ -126,13 +134,16 @@ task : (Task.Task error (model -> model)) -> Action error model
 task t =
   async <| \_ -> t
 
+
+
+
 --/////////////--
 -- COMBINATORS --
 --/////////////--
 
 
--------------------------
--- simple building blocks
+{-| 'thenDo' can be thought of as an `onSuccess` combinator: it combines two actions `act1` and `act2` in such a way, that if `act1` succeeds (which is always the case if no asynchronous action is involved) then right after it returns, `act2` takes place.
+-}
 thenDo : Action error model -> Action error model -> Action error model
 thenDo act1 act2 =
   case act1 of
@@ -140,17 +151,23 @@ thenDo act1 act2 =
     Modify mo   -> Modify <| mo `andThen` ( \act -> return <| thenDo act act2 )
     Launch tm   -> Launch <| \m -> (tm m) `Task.andThen` ( \mo -> Task.succeed <| (mo `andThen` \act -> return <| thenDo act act2) )
 
-
+{-| 'next' is the asynchronous combinator. It combines two actions such that both get invoked asynchronously.
+-}
 next : Action error model -> Action error model -> Action error model
 next act1 act2 =
   case act1 of
     None        -> act2
-    Modify mo   -> Modify <| mo `andThen` ( \act -> return <| next act act2 )
+    Modify mo   -> Launch <| \_ -> invoke act2 `Task.andThen` \_ -> Task.succeed mo
     Launch tm   -> Launch <| \m -> invoke act2 `Task.andThen` \_ -> (tm m)
 
 
 
--- onfail
+{-| 'onfail' is the error handling combinator. Its second argument is an error handler; on none asynchronous actions, nothing changes.
+
+
+   (requestJson `asyncOn` .typed)
+        `onfail` \err -> pure <| addEntry <| "Error happened: " ++ err
+-}
 onfail : Action error model -> (error -> Action x model) -> Action x model
 onfail act1 eact2 =
   case act1 of

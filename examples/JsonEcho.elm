@@ -71,17 +71,18 @@ typing s = Oprocesso.pure (setInput s)
 
 makeRequest : OT.Action x Model
 makeRequest =
-      Oprocesso.pure addTyped
-    >>- requestJson `Oprocesso.asyncOn` .typed
+    requestJson `Oprocesso.asyncOn` .typed
     >>- Oprocesso.task (requestJson "v1/bounce/v2/back")
     >>- Oprocesso.pure (addEntry "Succeed: echo!")
       !<< (\err -> Oprocesso.pure <| addEntry <| "Error happened:" ++ err)
-
     -<< Oprocesso.pure (addEntry "Back.")
   <=>
-    Oprocesso.pure (addEntry "back anyway.")
-  <=>
     Oprocesso.pure (setInput "")
+  <=>
+    Oprocesso.pure addTyped
+  <=>
+    Oprocesso.pure (addEntry "back anyway.")
+
 --/////////--
 --  TASKS  --
 --/////////--

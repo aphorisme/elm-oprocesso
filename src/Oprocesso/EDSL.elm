@@ -3,12 +3,12 @@ module Oprocesso.EDSL where
 
 import Oprocesso exposing (..)
 
-infixl 6 `thenDo`
-infixl 6 >>-
+infixl 5 `thenDo`
+infixl 5 >>-
 (>>-) = thenDo
 
-infixl 5 `onfail`
-infixl 5 !<<
+infixl 4 `onfail`
+infixl 4 !<<
 (!<<) = onfail
 
 infixl 3 -<<
