@@ -157,8 +157,8 @@ next : Action error model -> Action error model -> Action error model
 next act1 act2 =
   case act1 of
     None        -> act2
-    Modify mo   -> Launch <| \_ -> invoke act2 `Task.andThen` \_ -> Task.succeed mo
-    Launch tm   -> Launch <| \m -> invoke act2 `Task.andThen` \_ -> (tm m)
+    Modify mo   -> Launch <| \_ -> invoke act1 `Task.andThen` \_ -> invoke act2 `Task.andThen` \_ -> Task.succeed <| return None
+    Launch tm   -> Launch <| \m -> (tm m) `Task.andThen` \mo -> invoke (Modify mo) `Task.andThen` \_ -> invoke act2 `Task.andThen` \_ -> Task.succeed <| return None
 
 
 

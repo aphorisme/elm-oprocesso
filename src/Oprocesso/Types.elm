@@ -1,9 +1,11 @@
 module Oprocesso.Types where
 {-|
+  # Base Types
+
   ## State Monad
   @docs State, run, mapState, andThen, return
 
-  ## Core Types
+  ## Action and Modifier
   @docs Modifier, Action
 -}
 
@@ -18,6 +20,8 @@ import  Task
 
 -----------------
 -- State Monad
+
+-- | the 'State' monad is the underlying type of a 'Modifier', where its bindable variable will be an 'Action.'
 type State s a =
   State (s -> (s, a))
 
@@ -37,11 +41,13 @@ return x = State (\m -> (m, x))
 
 
 ------------------
--- Core Types
+-- Action and Modifier
+
+-- | a 'Modifier' is the core of an 'Action'. Inhabitants define how the model gets changed and which is the next 'Action' which has to happen (in the same synchronous task).
 type alias Modifier error model =
   State model (Action error model)
 
-
+-- | an 'Action' defines how the model change (if at all) or if an asynchronous modification shall take place.
 type Action error model =
     None
   | Modify (Modifier error model)

@@ -79,7 +79,7 @@ In the center there is an `Oprocesso.Action x Model`; it represents an action on
   - **pure actions**: these just change the model, so they can be thought of as functions of type `Model -> Model`
   - **asynchronous actions**: these build up a *pure action* on the current model which gets executed asynchronously. They can be thought of functions of type `Model -> Task x (Model -> Model)`.
 
-Since *pure actions* are almost just functions of type `Model -> Model` they have a close relationship to such functions, which are called **modifiers** in *oprocesso*. Usually *pure actions* are made out of *modifiers* by lifting them with `pure` and `pureParam`:
+Since *pure actions* are almost just functions of type `Model -> Model` they have a close relationship to such functions. Usually *pure actions* are made out of `Model -> Model` by lifting them with `pure` and `pureParam`:
 
 ```{.elm}
 addEntry : Oprocesso.Modifier Model
@@ -103,7 +103,7 @@ setInput s =
 
 These actions are called *pure* since they do not involve any IO, any outside computation (that may fail). So, they are pure in a functional sense.
 
-On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are called **asynchronous modifiers** in *oprocesso* and are used to make up *asynchronous actions* with `async` and `asyncOn`:
+On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are used to make up *asynchronous actions* with `async` and `asyncOn`:
 
 ```{.elm}
 echoJson : Task String (Model -> Model)
@@ -147,28 +147,34 @@ So the function `pure` has its dual in `async`, where `asyncOn` is connected to 
 
 Okay, so I've explained how to make up actions from simple building blocks; these so gained actions are somewhat overt. Also, *oprocesso* gives one the possibility to make up more complex *actions* by combining *actions* themselves.
 
-There are four flow control operators:
+There are three flow control operators:
 
-  1. `thenDo : Action model error -> Action model error -> Action model error` (or `(==>)`) which just glues two actions together such that they get executed one right after the other. (Which actually means that the second action does not wait until the asynchronous one has finished, if the first is of such kind.)
-  2. `incorpl : Modifier model -> Action model error -> Action model error` (or `(>>-)`) which fiddels in a modifier right *before* an action,
-  3. `incorpr : Action model error -> Modifier model -> Action model error` (or `(-<<)`) which fiddels in a modifier right *after* an action, i.e. it incorporates the modifier into the asynchronous action, or: it applies the modifier right after the asynchronous action has been applied, so to say, and
-  4. `onsuccess : Action model error -> Modifier model -> Action model error` (or `(-<!)`) which fiddels in a modifier in such a way that it happens only, if the action before was successful.
+  1. `thenDo : Action error model -> Action error model -> Action error model` (or `(>>-)` before the error handling and `(-<<)` after) which just glues two actions together such that they get executed one right after the other. That means: if the first action is asynchronous the second one will wait until the first returns and will only get invoked, if the first one succeeded.
+  2. `next : Action error model -> Action error model -> Action error model` (or `(=>>)`), which is the asynchronous combinator. It invokes the first action and right after that invokes the second one.
+  3. `onfail : Action error model -> (error -> Action x model) -> Action x model` (or `(!<<)`) which is the `catch` combinator. It provides an error handler as its second argument which gets run if the first action is an asynchronous action which failed. Otherwise it does not alter the action. Considering its type,  `onfail` is meant to make the `error` type meaningless.
 
-The idea is to define the needed *modifiers* and *asynchronous modifiers* and then glue them together into complex *actions*:
+The idea is to define the needed tasks and `Model -> Model` inhabitants and then lift and glue them together into complex *actions*:
 
 ```{.elm}
 
   {-| 'makeRequest'
-  - adds the current input into the history,
+  - disables the input box
   - starts an asynchronous request based on the current input
-  >> (which pushes its result into the history when completed) and
+    !<< prints out error if happened
+  - enables the input box
+  also:
+  - adds what was typed
   - empties the input box right after. -}
 
-  makeRequest : Action Model String
+  makeRequest : Action x Model
   makeRequest =
-             addTyped
-                >>- asyncRequestJson `with` .typed
-    `thenDo` pure (setInput "")
+                blockInput
+            >>- requestJson `asyncOn` .typed
+                !<< \s -> pureParam addEntry <| "Error: " ++ s
+            -<< unblockInput
+     =>>
+                pure addTyped
+            >>- pureParam setInput ""
 
   {- ... used in the following way:
 
@@ -177,56 +183,27 @@ The idea is to define the needed *modifiers* and *asynchronous modifiers* and th
   -}
 ```
 
-There are more examples within the documentation of the flow controllers in the `Oprocesso` module.
-
-### Flow Control from a Distance (eDSL time)
-
-If one looks from a distance, one might see that the flow controllers are made up in such a way, that the flow "goes around" a single *asynchronous action*:
-
-```{.elm}
-      print "start request"
-  >>- putOnHold
-  >>-
-      httpRequest `with` .sessionId
-      -<! print "We have a success."
-  -<<
-      removeHold
-
-  ==> pure (print "request sent")
-```
-
-but where `==>` (i.e. `thenDo`) seperates (in some sense distinct) actions.
-
-A question might appear right now: "How the heck can one incorporate *asynchronous actions* then?" Tl;dr: you can't. But you do not need to: `Task.andThen`,
-
-Why would you like to incorporate two *asynchronous actions* together? My guess: you have two `Task`s you would like to combine. And for such a situation, there is already `Task.andThen`.
-
-Well, let's take another look how *asynchronous actions* are made: they're built out of *asynchronous modifiers* which are, in fact, just inhabitants of `Task error (model -> model)`. Such `Task error (model -> model)` was probably made out of some `Task specificError a`. Aha!
-
-For example, the following situation may appear: when the app starts,
+As a good practice, the top-level actions you want to invoke by UI events should be of type `Action x Model`, so that any non-caught exception will raise a type error.
 
 ## Setup *oprocesso*
 
 First, you need some imports:
 
 ```{.elm}
-import  Oprocesso               exposing ({- which flow controllers you need -})
-import  Oprocesso.Types         exposing (..)
+import  Oprocesso
+import  Oprocesso.Types         as OT
+import  Oprocesso.EDSL          exposing (..)
 ```
 
-where I propose: expose everything from `Oprocesso.Types` but just the flow controllers from `Oprocesso`.
-
-Next, there are two ports you need to run:
+Next, there is one port you need to run:
 
 ```{.elm}
 port asyncrunner : Signal (Task x ())
-port asyncrunner = Oprocesso.ioport initmodel errorHandler
+port asyncrunner = Oprocesso.ioport initmodel
 
-port unbatch : Signal (Task x ())
-port unbatch = Oprocesso.unbatch
 ```
 
-where `initmodel` is the initial model and `errorHandler` is a function of type `error -> Modifier model`, which describes how to change the model, when an error was thrown by an *asynchronous action*.
+where `initmodel` is the initial model.
 
 At last, there is `Oprocesso.hook : model -> Signal model`, you can use for what ever you want. Mainly:
 

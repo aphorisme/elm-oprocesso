@@ -17,5 +17,5 @@ infixl 3 -<<
 
 
 infixl 2 `next`
-infixl 2 <=>
-(<=>) = next
+infixl 2 =>>
+(=>>) = next

@@ -2,7 +2,7 @@ module JsonEcho where
 
 
 -- Oprocesso:
-import  Oprocesso
+import  Oprocesso               exposing (asyncOn, async, task, pure, pureParam)
 import  Oprocesso.Types         as OT
 import  Oprocesso.EDSL          exposing (..)
 
@@ -17,6 +17,11 @@ import  Html                    exposing (..)
 import  Html.Events             exposing (..)
 import  Html.Attributes         exposing (..)
 import  Html.Lazy               exposing (lazy, lazy2)
+
+
+--///////////--
+--   HOOK    --
+--///////////--
 
 main : Signal Html
 main = Signal.map view (Oprocesso.hook initmodel)
@@ -36,9 +41,6 @@ type alias Model =
 
 initmodel : Model
 initmodel = { entries = ["Type: 'v1/the/v2/heck' to get 'the/heck' echoed."], typed = ""}
-
-errorHandler : String -> Model -> Model
-errorHandler s = addEntry <| "Error: " ++ s
 
 ------------
 -- modifiers:
@@ -62,30 +64,34 @@ setInput inp =
 
 -------------
 -- pure ones:
-typing : String -> OT.Action String Model
+typing : String -> OT.Action x Model
 typing s = Oprocesso.pure (setInput s)
+
 
 --------------------------
 -- dependent asynchronous:
-(>>=) = Task.andThen
-
 makeRequest : OT.Action x Model
 makeRequest =
-    requestJson `Oprocesso.asyncOn` .typed
-    >>- Oprocesso.task (requestJson "v1/bounce/v2/back")
-    >>- Oprocesso.pure (addEntry "Succeed: echo!")
-      !<< (\err -> Oprocesso.pure <| addEntry <| "Error happened:" ++ err)
-    -<< Oprocesso.pure (addEntry "Back.")
-  <=>
-    Oprocesso.pure (setInput "")
-  <=>
-    Oprocesso.pure addTyped
-  <=>
-    Oprocesso.pure (addEntry "back anyway.")
+        requestJson `asyncOn` .typed
+    >>- pureParam addEntry "Succeed: typed!"
+    >>- task (requestJson "v1/bounce/v2/back")
+    >>- pureParam addEntry "Succeed: Bounce back!"
+        !<< (\err -> pureParam addEntry <| "Error happened: " ++ err)
+    -<< pureParam addEntry "Back after error handling."
+  =>>
+    pure addTyped
+  =>>
+    pure (setInput "")
+  =>>
+    pure (addEntry "Async Back.")
+
+
 
 --/////////--
 --  TASKS  --
 --/////////--
+(>>=) = Task.andThen
+
 
 -------------
 -- dependent:
@@ -131,6 +137,7 @@ hentries es =
 --  MISC  --
 --////////--
 
+-- stolen from <https://github.com/evancz/elm-todomvc/blob/master/Todo.elm>
 onEnter : Address a -> a -> Attribute
 onEnter address value =
     on "keydown"
