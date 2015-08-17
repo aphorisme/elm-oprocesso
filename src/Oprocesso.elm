@@ -46,6 +46,11 @@ actionbox =
   Signal.mailbox None
 
 
+{-| 'invoke' is the direct way to invoke an action. -}
+invoke : Action error model -> Task.Task x ()
+invoke act =
+  Signal.send actionbox.address act
+
 
 {-| 'hook' sets up the main model signal.
 
@@ -68,8 +73,8 @@ hook initmodel =
 
 
 -}
-ioport : model -> (error -> (model -> model)) -> Signal (Task.Task x ())
-ioport initmodel errorHandler =
+ioport : model -> Signal (Task.Task x ())
+ioport initmodel =
     mmstack initmodel |> Signal.map snd
                       --^ make it a stream of the latest async tasks
                       |> Signal.filterMap identity (Sync (pure identity))
@@ -78,10 +83,8 @@ ioport initmodel errorHandler =
                       |> Signal.map
                             ( \rtyp -> case rtyp of
                                         Sync  act  -> Signal.send actionbox.address <| act
-                                        Async tact -> Task.toResult tact
-                                                     `Task.andThen` \ract -> case ract of
-                                                                        Ok act -> Signal.send actionbox.address act
-                                                                        Err err -> Signal.send actionbox.address (pure <| errorHandler err) )
+                                        Async tact -> tact `Task.andThen` \act -> Signal.send actionbox.address act )
+
 
 
 --/////////////--
@@ -124,5 +127,43 @@ task t =
 -- COMBINATORS --
 --/////////////--
 
+
 -------------------------
 -- simple building blocks
+thenDo : Action error model -> Action error model -> Action error model
+thenDo act1 act2 =
+  case act1 of
+    None        -> act2
+    Modify mo   -> Modify <| mo `andThen` ( \act -> return <| thenDo act act2 )
+    Launch tm   -> Launch <| \m -> (tm m) `Task.andThen` ( \mo -> Task.succeed <| (mo `andThen` \act -> return <| thenDo act act2) )
+
+
+next : Action error model -> Action error model -> Action error model
+next act1 act2 =
+  case act1 of
+    None        -> act2
+    Modify mo   -> Modify <| mo `andThen` ( \act -> return <| next act act2 )
+    Launch tm   -> Launch <| \m -> invoke act2 `Task.andThen` \_ -> (tm m)
+
+
+
+-- onfail
+onfail : Action error model -> (error -> Action x model) -> Action x model
+onfail act1 eact2 =
+  case act1 of
+    Launch tm -> Launch <| \m -> Task.toResult (tm m) `Task.andThen`
+                              \r -> case r of
+                                Ok mo   -> Task.succeed <| return (onfail (Modify mo) eact2)
+                                Err err -> Task.succeed <| return (eact2 err)
+    None      -> None
+    Modify mo -> Modify <| mo `andThen` \act -> return (onfail act eact2)
+
+onsuccess : Action error model -> Action x model -> Action x model
+onsuccess act1 act2 =
+  case act1 of
+    None      -> None
+    Modify mo -> Modify <| mo `andThen` \act -> return (onsuccess act act2)
+    Launch tm -> Launch <| \m -> Task.toResult (tm m) `Task.andThen`
+                             \r -> case r of
+                               Ok mo   -> Task.succeed <| mo `andThen` (\act -> return <| onsuccess act act2)
+                               Err err -> Task.succeed <| return None

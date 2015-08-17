@@ -4,6 +4,7 @@ module JsonEcho where
 -- Oprocesso:
 import  Oprocesso
 import  Oprocesso.Types         as OT
+import  Oprocesso.EDSL          exposing (..)
 
 -- core:
 import  Task                    exposing (Task)
@@ -21,7 +22,7 @@ main : Signal Html
 main = Signal.map view (Oprocesso.hook initmodel)
 
 port asyncrunner : Signal (Task x ())
-port asyncrunner = Oprocesso.ioport initmodel errorHandler
+port asyncrunner = Oprocesso.ioport initmodel
 
 
 --///////////--
@@ -86,20 +87,33 @@ makeRequest =
   `thenDo` pure (setInput "")
 -}
 
+makeRequest : OT.Action x Model
+makeRequest =
+      Oprocesso.pure addTyped
+    >>- requestJson `Oprocesso.asyncOn` .typed
+    >>- Oprocesso.task (requestJson "v1/bounce/v2/back")
+      >>- Oprocesso.pure (addEntry "Succeed: echo!")
+      !<< (\err -> Oprocesso.pure <| addEntry <| "Error happened:" ++ err)
+
+    -<< Oprocesso.pure (addEntry "Back.")
+  ==>  Oprocesso.pure (addEntry "back anyway.")
+  ==>  Oprocesso.pure (setInput "")
 --/////////--
 --  TASKS  --
 --/////////--
 
 -------------
 -- dependent:
-asyncRequestJson : String -> Task String (Model -> Model)
-asyncRequestJson typd =
+requestJson : String -> Task String (Model -> Model)
+requestJson typd =
   let vvDecoder_ =
         object2 (,)
           ("v1" := string)
           ("v2" := string)
   in Task.mapError toString (Http.get vvDecoder_ ("http://echo.jsontest.com/" ++ typd))
      >>= \(s1, s2) -> Task.succeed <| addEntry ("Echoed: " ++ s1 ++ "/" ++ s2)
+
+
 
 
 --////////--
@@ -117,7 +131,7 @@ inputfield s =
   input [ id "inputfield"
         , value s
         , on "input" (Json.Decode.map typing targetValue) (Signal.message <| .address Oprocesso.actionbox)
-        , onEnter (.address Oprocesso.actionbox) (asyncRequestJson `Oprocesso.asyncOn` .typed)
+        , onEnter (.address Oprocesso.actionbox) makeRequest
         ]
         []
 
