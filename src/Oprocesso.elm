@@ -101,6 +101,9 @@ pure f =
   Modify (mapState f <| return None)
 
 
+pureParam : (a -> (model -> model)) -> a -> Action error model
+pureParam f x = pure (f x)
+
 {-| An asynchronous modification of the model is any task which gets invoked based on the current model and returns with a modification. One can use 'async' to lift such functions. -}
 async : (model -> Task.Task error (model -> model)) -> Action error model
 async tf =
@@ -157,13 +160,3 @@ onfail act1 eact2 =
                                 Err err -> Task.succeed <| return (eact2 err)
     None      -> None
     Modify mo -> Modify <| mo `andThen` \act -> return (onfail act eact2)
-
-onsuccess : Action error model -> Action x model -> Action x model
-onsuccess act1 act2 =
-  case act1 of
-    None      -> None
-    Modify mo -> Modify <| mo `andThen` \act -> return (onsuccess act act2)
-    Launch tm -> Launch <| \m -> Task.toResult (tm m) `Task.andThen`
-                             \r -> case r of
-                               Ok mo   -> Task.succeed <| mo `andThen` (\act -> return <| onsuccess act act2)
-                               Err err -> Task.succeed <| return None

@@ -2,6 +2,8 @@
 
 > Josef K. foi certamente vítima de alguma calúnia, pois, numa bela manhã, sem ter feito nada de mal, foi detido.
 
+**README IS NOT UP TO DATE**
+
 ## Disclaimer
 
 This framework is at the moment at a state of a bare *proof of concept*. The chances are high that it will suffer significant changes. It might even be the case that the key idea is flawed, I don't know yet.
@@ -48,7 +50,7 @@ inputfield inp =
 with *oprocesso* one can write:
 
 ```{.elm}
-typing : String -> Modifier Model
+typing : String -> (Model -> Model)
 typing s =
   \m -> { m | typed <- s }
 
@@ -59,25 +61,25 @@ typing s =
 inputfield : String -> Html
 inputfield inp =
   input [ value inp
-        , on "input" (Json.Decode.map (purelift typing) targetValue)
+        , on "input" (Json.Decode.map (pureParam typing) targetValue)
                      (Signal.message actionbox.address) ] []
 ```
 
 One might say it is just a *shift* from a first order `Action` to a second order `Model -> Model` which gets foldp'ed instead. This shift (which was actually brought up by Max Goldstein in his [answer](https://groups.google.com/forum/#!topic/elm-discuss/RFLjOxQp1PA) to a question of mine), although, leads to two points which I consider as an improvement (from now on, "Actions" are meant to be `Oprocesso.Action`s):
 
-  1. Actions are functions; those functions can be combined in a natural way to form new functions, so starting with small, obvious actions, one can build up more complex ones -- which stay therefore obvious. (For those who had the time and pleasure to build their own [monadic] parser combinators [in Haskell], the shift described above might already have rang a bell. Although, `Oprocesso.Action`s are not in the same kind monadic as parser combinators are -- [they could, but they don't need to](#actionNOTmonadic).)
+  1. Actions are based upon functions; those functions can be combined in a natural way to form new functions, so starting with small, obvious actions, one can build up more complex ones -- which stay therefore obvious. (For those who had the time and pleasure to build their own [monadic] parser combinators [in Haskell], the shift described above might already have rang a bell. Although, `Oprocesso.Action`s are not in the same kind monadic as parser combinators are -- [they could, but they don't need to](#actionNOTmonadic).)
   2. Actions can be asynchronous; this is due to the fact, that actions can be made out of `Task`s.
 
 ## Framework's Entities
 
 ### Actions and Modifiers
 
-In the center there is an `Oprocesso.Action model error`; it represents an action on the model, i.e. something that describes how to map a certain model onto another. There are two differnt sorts of actions:
+In the center there is an `Oprocesso.Action x Model`; it represents an action on the model, i.e. something that describes how to map a certain model onto another. There are two differnt sorts of actions:
 
   - **pure actions**: these just change the model, so they can be thought of as functions of type `Model -> Model`
-  - **asynchronous actions**: these build up a *pure action* on the current model which gets executed asynchronously. They can be thought of functions of type `Model -> (Model -> Model)`.
+  - **asynchronous actions**: these build up a *pure action* on the current model which gets executed asynchronously. They can be thought of functions of type `Model -> Task x (Model -> Model)`.
 
-Since *pure actions* are almost just functions of type `Model -> Model` they have a close relationship to such functions, which are called **modifiers** in *oprocesso*. Usually *pure actions* are made out of *modifiers* by lifting them with `pure` and `purelift`:
+Since *pure actions* are almost just functions of type `Model -> Model` they have a close relationship to such functions, which are called **modifiers** in *oprocesso*. Usually *pure actions* are made out of *modifiers* by lifting them with `pure` and `pureParam`:
 
 ```{.elm}
 addEntry : Oprocesso.Modifier Model
@@ -91,36 +93,36 @@ setInput s =
 {-
   Now we have:
 
-    pure addEntry : Oprocesso.Action Model x
+    pure addEntry : Oprocesso.Action x Model
 
   and
 
-    purelift setInput : String -> Oprocesso.Action Model x
+    pureParam setInput : String -> Oprocesso.Action x Model
 -}
 ```
 
 These actions are called *pure* since they do not involve any IO, any outside computation (that may fail). So, they are pure in a functional sense.
 
-On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are called **asynchronous modifiers** in *oprocesso* and are used to make up *asynchronous actions* with `async` and `with`:
+On the other hand, *asynchronous actions*  involving outside computation. They may send a http request, doing some database communicating etc. Hence they are related to `Task`s of a certain kind, such, which are modifying the model, i.e. of type `Task error (model -> model)`. These tasks are called **asynchronous modifiers** in *oprocesso* and are used to make up *asynchronous actions* with `async` and `asyncOn`:
 
 ```{.elm}
-echoJson : Oprocesso.AsyncModifier Model String
+echoJson : Task String (Model -> Model)
 echoJson =
   let vvDecoder_ =
         object2 (,)
           ("v1" := string)
           ("v2" := string)
   in Task.mapError toString (Http.get vvDecoder_ ("http://echo.jsontest.com/v1/Hello/v2/World"))
-     >>= \(s1, s2) -> Task.succeed <| addEntry ("Echoed: " ++ s1 ++ "/" ++ s2)
+     `Task.andThen` \(s1, s2) -> Task.succeed <| addEntry ("Echoed: " ++ s1 ++ "/" ++ s2)
 
-asyncRequestJson : String -> Oprocesso.AsyncModifier Model String
-asyncRequestJson typd =
+requestJson : String -> Task String (Model -> Model)
+requestJson typd =
   let vvDecoder_ =
         object2 (,)
           ("v1" := string)
           ("v2" := string)
   in Task.mapError toString (Http.get vvDecoder_ ("http://echo.jsontest.com/" ++ typd))
-     >>= \(s1, s2) -> Task.succeed <| addEntry ("Echoed: " ++ s1 ++ "/" ++ s2)
+     `Task.andThen` \(s1, s2) -> Task.succeed <| addEntry ("Echoed: " ++ s1 ++ "/" ++ s2)
 
 {-
   Hence,
@@ -129,7 +131,7 @@ asyncRequestJson typd =
 
   and
 
-    asyncRequestJson `with` .typed : Oprocesso.Action Model String
+    requestJson `asyncOn` .typed : Oprocesso.Action Model String
 
   where
 
@@ -137,13 +139,13 @@ asyncRequestJson typd =
 -}
 ```
 
-So the function `pure` has its dual in `async`, where `with` is connected to `purelift` in some sense.
+So the function `pure` has its dual in `async`, where `asyncOn` is connected to `pureParam` in some sense.
 
 ## Flow Control
 
 ### Flow Control Operators
 
-Okay, so I've explained how to make up actions from simple building blocks; these so gained actions are somewhat overt. Also, *oprocesso* gives one the possibility to make up more complex *actions* by combining *modifiers*, *asynchronous modifiers* and *actions* themselves.
+Okay, so I've explained how to make up actions from simple building blocks; these so gained actions are somewhat overt. Also, *oprocesso* gives one the possibility to make up more complex *actions* by combining *actions* themselves.
 
 There are four flow control operators:
 
@@ -201,7 +203,7 @@ Why would you like to incorporate two *asynchronous actions* together? My guess:
 
 Well, let's take another look how *asynchronous actions* are made: they're built out of *asynchronous modifiers* which are, in fact, just inhabitants of `Task error (model -> model)`. Such `Task error (model -> model)` was probably made out of some `Task specificError a`. Aha!
 
-For example, the following situation may appear: when the app starts, 
+For example, the following situation may appear: when the app starts,
 
 ## Setup *oprocesso*
 

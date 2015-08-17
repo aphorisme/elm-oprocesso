@@ -69,35 +69,19 @@ typing s = Oprocesso.pure (setInput s)
 -- dependent asynchronous:
 (>>=) = Task.andThen
 
-{-| 'makeRequest' adds the current input into the history, starts an asynchronous request based on the current input (and which pushes its result into the history when completed) and empties the input box right after. -}
-{-makeRequest : Action Model String
-makeRequest =
-      {-     addTyped
-              >>- asyncRequestJson `with` .typed
-                  -<! addEntry "Succeed: echo."
-              =<< Oprocesso.async (asyncRequestJson "v1/bounce/v2/back")
-                  -<! addEntry "Succeed: bounce."
-              -<< addEntry "Echo and Bounce complete."
--}
-
-            addTyped
-            >>- asyncRequestJson `with` .typed
-            =<< Oprocesso.async (asyncRequestJson "v1/bounce/v2/back")
-            =<< Oprocesso.async (asyncRequestJson "v1/back/v2/bounce")
-  `thenDo` pure (setInput "")
--}
-
 makeRequest : OT.Action x Model
 makeRequest =
       Oprocesso.pure addTyped
     >>- requestJson `Oprocesso.asyncOn` .typed
     >>- Oprocesso.task (requestJson "v1/bounce/v2/back")
-      >>- Oprocesso.pure (addEntry "Succeed: echo!")
+    >>- Oprocesso.pure (addEntry "Succeed: echo!")
       !<< (\err -> Oprocesso.pure <| addEntry <| "Error happened:" ++ err)
 
     -<< Oprocesso.pure (addEntry "Back.")
-  ==>  Oprocesso.pure (addEntry "back anyway.")
-  ==>  Oprocesso.pure (setInput "")
+  <=>
+    Oprocesso.pure (addEntry "back anyway.")
+  <=>
+    Oprocesso.pure (setInput "")
 --/////////--
 --  TASKS  --
 --/////////--

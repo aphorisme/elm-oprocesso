@@ -11,16 +11,11 @@ infixl 5 `onfail`
 infixl 5 !<<
 (!<<) = onfail
 
-
-infixl 4 `onsuccess`
-infixl 4 ?<<
-(?<<) = onsuccess
-
 infixl 3 -<<
 (-<<) = thenDo
 
 
 
 infixl 2 `next`
-infixl 2 ==>
-(==>) = next
+infixl 2 <=>
+(<=>) = next
