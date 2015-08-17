@@ -1,7 +1,11 @@
 module Oprocesso.EDSL where
+{-| The `EDSL` module provides infix operator symbols and precedence to use the framework as mentioned in the `README`.
+    Just include, if you into such stuff.
 
+@docs >>-, !<<, -<<, =>>
+-}
 
-import Oprocesso exposing (..)
+import Oprocesso exposing (thenDo, onfail, next)
 
 infixl 5 `thenDo`
 infixl 5 >>-
