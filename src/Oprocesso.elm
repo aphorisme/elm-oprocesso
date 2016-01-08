@@ -1,13 +1,17 @@
 module Oprocesso where
-{-|
-  # Framework
-  @docs actionbox, hook, ioport
+{-| The core part of the `oprocesso` framework.
 
-  # Lifts
-  @docs pure, async, asyncOn, task
+# Background
+@docs RepType, mmstack
 
-  # Combinators
-  @docs thenDo, next, onfail
+# Framework
+@docs actionbox, invoke, hook, ioport
+
+# Lifts
+@docs pure, pureParam, async, asyncOn, task
+
+# Combinators
+@docs thenDo, next, onfail
 -}
 
 --- Intern:
@@ -20,6 +24,8 @@ import    Signal
 --//////////////--
 --  BACKGROUND  --
 --//////////////--
+
+{-| Every 'Action' gets replicated into a queue, from where it gets polled and executed; their 'RepType' is a hull for every action in the queue, needed for the framework to decide how to execute the actions. -}
 type RepType error model =
     Sync  (Action error model)
   | Async (Task.Task error (Action error model))
