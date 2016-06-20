@@ -1,3 +1,7 @@
+# Deprecated
+
+As of `elm-0.17`, most of my ideas are built-in now; there are `Cmd`s which are run by elm and get fed back into the `update` method. There is also a dispatcher, `subscription`s now. This makes this framework somewhat obsolete except for the combinators. I might consider to write a `Cmd` and `Sub` combinator library though.
+
 # *oprocesso* - a combinator-based elm framework
 
 > Josef K. foi certamente vítima de alguma calúnia, pois, numa bela manhã, sem ter feito nada de mal, foi detido.
